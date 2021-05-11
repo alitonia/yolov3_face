@@ -1,0 +1,11 @@
+venv/
+*.mp4
+*.wav
+.idea
+.log
+*.cache
+*.jpg
+*.jepg
+*.png
+*.h5
+.ipynb_checkpoints/
