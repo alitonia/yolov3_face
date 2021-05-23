@@ -10,9 +10,4 @@ _A fork of https://github.com/qqwweee/keras-yolo3_
 
 * `pip install -r requirement.txt`
 
-
-* in __yolo.ipynb__, change `target_vid`
-  to the video you want to use, and `predicted_vid`
-  to the destination you want to save new predicted media. If you don't want to save, leave it as empty string.
-
 * Run __yolo.ipynb__ incrementally

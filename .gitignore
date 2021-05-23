@@ -10,3 +10,4 @@ venv/
 *.h5
 .ipynb_checkpoints/
 !samples
+!wider_default.h5
