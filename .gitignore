@@ -9,3 +9,4 @@ venv/
 *.png
 *.h5
 .ipynb_checkpoints/
+!samples
