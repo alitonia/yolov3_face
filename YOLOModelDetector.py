@@ -693,6 +693,7 @@ def _main(args):
 
     plot(model, to_file='{}.png'.format(output_root), show_shapes=True)
     print('Saved model plot to {}.png'.format(output_root))
+    
 class YOLO(object):
     _defaults = {
         "model_path": 'yolo.h5',
@@ -789,6 +790,14 @@ class YOLO(object):
                 # K.learning_phase(): 0
             })
         
+        #Immediately return the outboxes with confidence
+        returnList = []
+        out_boxes_xywh = xyxy_to_xywh(out_boxes)
+        for i in range(out_scores.size):
+            x,y,w,h = out_boxes_xywh[i]
+            returnList.append([out_scores[i],x,y,w,h])
+        
+        return returnList
     
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
 
@@ -839,7 +848,11 @@ class YOLO(object):
     def close_session(self):
         self.sess.close()
 
-
+def xyxy_to_xywh(boxes):
+         # inverse function of the above function
+    """Convert [x1 y1 x2 y2] box format to [x y w h] format."""
+    return np.hstack((boxes[:, 0:2], boxes[:, 2:4] - boxes[:, 0:2] + 1))
+        
 #Model, anchor and classes must be inside the same folder
 class ModelDetector:
     def prepare(self):
@@ -852,3 +865,7 @@ class ModelDetector:
     # Defining a function that will do the detections
     def detect(self, frame):
         return self.yolo_loaded.detect_image(frame)
+    
+    def detect_with_path(path_to_image):
+        frame = Image.open(path_to_image)
+        return self.detect(frame)
