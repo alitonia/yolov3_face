@@ -841,7 +841,6 @@ class YOLO(object):
             del draw
 
         end = timer()
-        print(end - start)
 #         return image
         return out_boxes
 
@@ -852,7 +851,7 @@ def xyxy_to_xywh(boxes):
          # inverse function of the above function
     """Convert [x1 y1 x2 y2] box format to [x y w h] format."""
     return np.hstack((boxes[:, 0:2], boxes[:, 2:4] - boxes[:, 0:2] + 1))
-        
+    
 #Model, anchor and classes must be inside the same folder
 class ModelDetector:
     def prepare(self):
@@ -864,7 +863,12 @@ class ModelDetector:
 
     # Defining a function that will do the detections
     def detect(self, frame):
-        return self.yolo_loaded.detect_image(frame)
+        values = self.yolo_loaded.detect_image(frame)
+        for thing in values:
+            thing[1], thing[2] = thing[2], thing[1]
+            thing[3], thing[4] = thing[4], thing[3]
+
+        return values
     
     def detect_with_path(path_to_image):
         frame = Image.open(path_to_image)
