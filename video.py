@@ -26,13 +26,97 @@ from threading import Thread, Lock
 from queue import Queue
 import multiprocessing
 
+from scipy.spatial import distance as dist
+from collections import OrderedDict
+
+
+class CentroidTracker():
+    def __init__(self, maxDisappeared=100):
+        self.nextObjectID = 0
+        self.objects = OrderedDict()
+        self.disappeared = OrderedDict()
+        self.maxDisappeared = maxDisappeared
+
+    def register(self, centroid):
+        self.objects[self.nextObjectID] = centroid
+        self.disappeared[self.nextObjectID] = 0
+        self.nextObjectID += 1
+
+    def deregister(self, objectID):
+        del self.objects[objectID]
+        del self.disappeared[objectID]
+
+    def update(self, rects):
+        # Impending deletion
+        # Cant have size of 0
+        if len(rects) == 0:
+            for objectID in list(self.disappeared.keys()):
+                self.disappeared[objectID] += 1
+                if self.disappeared[objectID] > self.maxDisappeared:
+                    self.deregister(objectID)
+            return self.objects
+
+        inputCentroids = np.zeros((len(rects), 2), dtype="int")
+        for (i, (_, startX, startY, w, h)) in enumerate(rects):
+            cX = int(startX + (w / 2.0))
+            cY = int(startY + (h / 2.0))
+            inputCentroids[i] = (cX, cY)
+
+        if len(self.objects) == 0:
+            for i in range(0, len(inputCentroids)):
+                self.register(inputCentroids[i])
+        else:
+            # Get vrv centroid
+            objectIDs = list(self.objects.keys())
+            objectCentroids = list(self.objects.values())
+            # get distance between all
+            D = dist.cdist(np.array(objectCentroids), inputCentroids)
+            # sorting
+            rows = D.min(axis=1).argsort()
+            cols = D.argmin(axis=1)[rows]
+
+            usedRows = set()
+            usedCols = set()
+
+            for (row, col) in zip(rows, cols):
+                # skip uswd
+                if row in usedRows or col in usedCols:
+                    continue
+                # assign new centroid coord
+                objectID = objectIDs[row]
+                self.objects[objectID] = inputCentroids[col]
+                self.disappeared[objectID] = 0
+                # Mark not disappear
+                usedRows.add(row)
+                usedCols.add(col)
+
+            unusedRows = set(range(0, D.shape[0])).difference(usedRows)
+            unusedCols = set(range(0, D.shape[1])).difference(usedCols)
+
+            # mark pending disappear
+            if D.shape[0] >= D.shape[1]:
+                # loop over the unused row indexes
+                for row in unusedRows:
+                    # increase counter
+                    objectID = objectIDs[row]
+                    self.disappeared[objectID] += 1
+                    # remove
+                    if self.disappeared[objectID] > self.maxDisappeared:
+                        self.deregister(objectID)
+            else:
+                # case have more o
+                for col in unusedCols:
+                    self.register(inputCentroids[col])
+        return self.objects
+
+
 pos_face = Lock()
 pos_feature = Lock()
 rect_lock = Lock()
 face_lock = Lock()
 
 vid_path = 'abcc.mp4'
-result_path = 'over_e.mp4'
+result_path = 'over_f.mp4'
 
 detector = md.ModelDetector()
 detector.prepare()
@@ -65,6 +149,8 @@ rect_raw = []
 face_in = Queue()
 face_out = Queue()
 feature_out = Queue()
+
+ct = CentroidTracker()
 
 
 def predict_face(q, q_out_face, q_out_feature):
@@ -141,6 +227,8 @@ while vs.more():
         faceRects = face_out.get()
     pos_feature.release()
 
+    k = ct.update(faceRects)
+
     for (_, fX, fY, fW, fH) in faceRects:
         # extract the face ROI
         cv2.rectangle(frame, (fX.astype(int), fY.astype(int)), ((fX + fW).astype(int), (fY + fH).astype(int)),
@@ -158,6 +246,9 @@ while vs.more():
         for idx, point in enumerate(rect_raw):
             cv2.circle(frame, (point[0, 0], point[0, 1]), 0, (255, 0, 0), -1)
 
+    for (id, coord) in k.items():
+        cv2.putText(frame, str(id), (coord[0] - 10, coord[1] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
     if i < min_i:
         pass
     else:
